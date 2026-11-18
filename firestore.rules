@@ -1,0 +1,230 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidLinkCode(code) {
+      return code is string && code.size() >= 3 && code.size() <= 40 && code.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'onlinemakting590@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // --- Validation Blueprints ---
+    function isValidLink(data) {
+      return data.keys().hasAll([
+          'code', 'originalUrl', 'title', 'description',
+          'active', 'clickCount', 'ownerId', 'createdAt', 'updatedAt', 'lastClickedAt'
+        ])
+        && data.keys().hasOnly([
+          'code', 'originalUrl', 'title', 'description',
+          'active', 'clickCount', 'ownerId', 'createdAt', 'updatedAt', 'lastClickedAt'
+        ])
+        && isValidLinkCode(data.code)
+        && data.originalUrl is string
+        && data.originalUrl.size() >= 8
+        && data.originalUrl.size() <= 2048
+        && data.originalUrl.matches('^https?://.+')
+        && data.title is string
+        && data.title.size() <= 120
+        && data.description is string
+        && data.description.size() <= 400
+        && data.active is bool
+        && data.clickCount is int
+        && data.clickCount >= 0
+        && isValidId(data.ownerId)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.lastClickedAt is timestamp;
+    }
+
+    function isValidClick(data) {
+      return data.keys().hasAll([
+          'linkCode', 'linkOwnerId', 'clickedAt', 'dateKey', 'hour',
+          'device', 'browser', 'os', 'country', 'city', 'source', 'referer'
+        ])
+        && data.keys().hasOnly([
+          'linkCode', 'linkOwnerId', 'clickedAt', 'dateKey', 'hour',
+          'device', 'browser', 'os', 'country', 'city', 'source', 'referer'
+        ])
+        && isValidLinkCode(data.linkCode)
+        && isValidId(data.linkOwnerId)
+        && data.clickedAt is timestamp
+        && data.dateKey is string
+        && data.dateKey.size() == 10
+        && data.dateKey.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.hour is int
+        && data.hour >= 0
+        && data.hour <= 23
+        && data.device is string
+        && data.device.size() <= 20
+        && data.device in ['mobile', 'tablet', 'desktop']
+        && data.browser is string
+        && data.browser.size() >= 1
+        && data.browser.size() <= 40
+        && data.os is string
+        && data.os.size() >= 1
+        && data.os.size() <= 40
+        && data.country is string
+        && data.country.size() >= 1
+        && data.country.size() <= 80
+        && data.city is string
+        && data.city.size() >= 1
+        && data.city.size() <= 80
+        && data.source is string
+        && data.source.size() >= 1
+        && data.source.size() <= 60
+        && data.referer is string
+        && data.referer.size() >= 1
+        && data.referer.size() <= 200;
+    }
+
+    // --- Collection Rules ---
+
+    // Connection check document
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // Links collection
+    match /links/{linkCode} {
+      allow get: if isValidLinkCode(linkCode);
+      allow list: if isAdmin() || (isVerifiedUser() && resource.data.ownerId == request.auth.uid);
+
+      allow create: if isVerifiedUser()
+        && isValidLinkCode(linkCode)
+        && isValidLink(incoming())
+        && incoming().code == linkCode
+        && incoming().ownerId == request.auth.uid
+        && (isAdmin() || incoming().clickCount == 0)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && incoming().lastClickedAt == request.time;
+
+      allow update: if isValidLinkCode(linkCode) && isValidLink(incoming()) && (
+        // Action 1: Owner or Admin updates metadata/state
+        (
+          isVerifiedUser()
+          && (isAdmin() || existing().ownerId == request.auth.uid)
+          && incoming().code == existing().code
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['originalUrl', 'title', 'description', 'active', 'updatedAt'])
+        )
+        ||
+        // Action 2: Public visitor click tracking increment (atomically +1 on active links)
+        (
+          existing().active == true
+          && incoming().diff(existing()).affectedKeys().hasOnly(['clickCount', 'lastClickedAt'])
+          && incoming().clickCount == existing().clickCount + 1
+          && incoming().lastClickedAt == request.time
+        )
+      );
+
+      allow delete: if isValidLinkCode(linkCode) && isVerifiedUser() && (isAdmin() || existing().ownerId == request.auth.uid);
+    }
+
+    // Click telemetry collection
+    match /clicks/{clickId} {
+      allow get: if isValidId(clickId) && isVerifiedUser() && (isAdmin() || existing().linkOwnerId == request.auth.uid);
+      allow list: if isAdmin() || (isVerifiedUser() && resource.data.linkOwnerId == request.auth.uid);
+
+      allow create: if isValidId(clickId)
+        && isValidClick(incoming())
+        && incoming().clickedAt == request.time
+        && (
+          (
+            exists(/databases/$(database)/documents/links/$(incoming().linkCode))
+            && get(/databases/$(database)/documents/links/$(incoming().linkCode)).data.active == true
+            && get(/databases/$(database)/documents/links/$(incoming().linkCode)).data.ownerId == incoming().linkOwnerId
+            && getAfter(/databases/$(database)/documents/links/$(incoming().linkCode)).data.clickCount == get(/databases/$(database)/documents/links/$(incoming().linkCode)).data.clickCount + 1
+          )
+          ||
+          (
+            isAdmin()
+            && existsAfter(/databases/$(database)/documents/links/$(incoming().linkCode))
+          )
+        );
+
+      allow update: if false;
+      allow delete: if isValidId(clickId) && isVerifiedUser() && (isAdmin() || existing().linkOwnerId == request.auth.uid);
+    }
+
+    // Settings documents
+    match /settings/public {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isAdmin()
+        && incoming().keys().hasAll(['appName', 'updatedAt'])
+        && incoming().keys().hasOnly(['appName', 'updatedAt'])
+        && incoming().appName is string
+        && incoming().appName.size() >= 2
+        && incoming().appName.size() <= 60
+        && incoming().updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /settings/security {
+      allow get: if isAdmin();
+      allow list: if false;
+      allow create, update: if isAdmin()
+        && incoming().keys().hasAll(['passcodeHash', 'passcodeSalt', 'passcodeEnabled', 'updatedAt', 'updatedBy'])
+        && incoming().keys().hasOnly(['passcodeHash', 'passcodeSalt', 'passcodeEnabled', 'updatedAt', 'updatedBy'])
+        && incoming().passcodeHash is string
+        && incoming().passcodeHash.size() <= 128
+        && incoming().passcodeSalt is string
+        && incoming().passcodeSalt.size() <= 64
+        && incoming().passcodeEnabled is bool
+        && incoming().updatedAt == request.time
+        && incoming().updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Admin directory
+    match /admins/{uid} {
+      allow get: if isValidId(uid) && isVerifiedUser() && (isAdmin() || request.auth.uid == uid);
+      allow list: if isAdmin();
+      allow create, update: if isValidId(uid)
+        && isAdmin()
+        && incoming().keys().hasAll(['email', 'role', 'addedAt', 'addedBy'])
+        && incoming().keys().hasOnly(['email', 'role', 'addedAt', 'addedBy'])
+        && incoming().email is string
+        && incoming().email.size() >= 5
+        && incoming().email.size() <= 160
+        && incoming().role == 'admin'
+        && incoming().addedAt == request.time
+        && incoming().addedBy == request.auth.uid;
+      allow delete: if isValidId(uid) && isAdmin() && uid != request.auth.uid;
+    }
+  }
+}

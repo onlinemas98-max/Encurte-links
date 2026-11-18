@@ -1,0 +1,260 @@
+{
+  "entities": {
+    "Link": {
+      "title": "Link",
+      "description": "Shortened URL entry with metadata, activation state, and aggregate click counter.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Unique short slug identifier (3-40 alphanumeric, underscore, or hyphen characters).",
+          "minLength": 3,
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "originalUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Target destination HTTP/HTTPS URL.",
+          "minLength": 8,
+          "maxLength": 2048,
+          "pattern": "^https?://.+"
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-friendly label for the link.",
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional campaign or destination notes.",
+          "maxLength": 400
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Whether redirects and click tracking are currently enabled."
+        },
+        "clickCount": {
+          "type": "integer",
+          "description": "Total recorded clicks."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the creator.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of link creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last administrative edit."
+        },
+        "lastClickedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of most recent click (or creation time if zero clicks)."
+        }
+      },
+      "required": [
+        "code",
+        "originalUrl",
+        "title",
+        "description",
+        "active",
+        "clickCount",
+        "ownerId",
+        "createdAt",
+        "updatedAt",
+        "lastClickedAt"
+      ]
+    },
+    "ClickEvent": {
+      "title": "ClickEvent",
+      "description": "Non-PII click telemetry recorded when a visitor follows a short link.",
+      "type": "object",
+      "properties": {
+        "linkCode": {
+          "type": "string",
+          "description": "Short code of the visited link.",
+          "minLength": 3,
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "linkOwnerId": {
+          "type": "string",
+          "description": "Owner UID of the parent link for scoped list queries.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "clickedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Exact server timestamp of the access."
+        },
+        "dateKey": {
+          "type": "string",
+          "description": "Calendar date in YYYY-MM-DD format.",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "hour": {
+          "type": "integer",
+          "description": "Hour of day (0-23)."
+        },
+        "device": {
+          "type": "string",
+          "enum": ["mobile", "tablet", "desktop"],
+          "description": "Visitor device category.",
+          "maxLength": 20
+        },
+        "browser": {
+          "type": "string",
+          "description": "Browser family name.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "os": {
+          "type": "string",
+          "description": "Operating system family.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "country": {
+          "type": "string",
+          "description": "Approximate visitor country when available.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "city": {
+          "type": "string",
+          "description": "Approximate visitor city when available.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "source": {
+          "type": "string",
+          "description": "Traffic source classification.",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "referer": {
+          "type": "string",
+          "description": "Sanitized referrer host or Direct.",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "linkCode",
+        "linkOwnerId",
+        "clickedAt",
+        "dateKey",
+        "hour",
+        "device",
+        "browser",
+        "os",
+        "country",
+        "city",
+        "source",
+        "referer"
+      ]
+    },
+    "PublicSettings": {
+      "title": "PublicSettings",
+      "description": "Publicly readable branding configuration (application display name).",
+      "type": "object",
+      "properties": {
+        "appName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["appName", "updatedAt"]
+    },
+    "SecuritySettings": {
+      "title": "SecuritySettings",
+      "description": "Admin-only hashed secondary passcode settings.",
+      "type": "object",
+      "properties": {
+        "passcodeHash": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "passcodeSalt": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "passcodeEnabled": {
+          "type": "boolean"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedBy": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "required": ["passcodeHash", "passcodeSalt", "passcodeEnabled", "updatedAt", "updatedBy"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized administrator directory record.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 160
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin"]
+        },
+        "addedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "addedBy": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "required": ["email", "role", "addedAt", "addedBy"]
+    }
+  },
+  "firestore": {
+    "/links/{linkCode}": {
+      "schema": { "$ref": "#/entities/Link" },
+      "description": "Shortened links indexed by their unique short code."
+    },
+    "/clicks/{clickId}": {
+      "schema": { "$ref": "#/entities/ClickEvent" },
+      "description": "Individual click telemetry events linked atomically to links/{linkCode}."
+    },
+    "/settings/public": {
+      "schema": { "$ref": "#/entities/PublicSettings" },
+      "description": "Public branding settings (application title)."
+    },
+    "/settings/security": {
+      "schema": { "$ref": "#/entities/SecuritySettings" },
+      "description": "Restricted admin security configuration (salted SHA-256 passcode hash)."
+    },
+    "/admins/{uid}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Authorized admin UIDs."
+    }
+  }
+}

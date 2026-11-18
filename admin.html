@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Painel Administrativo — LinkPulse</title>
+    <meta name="description" content="Painel administrativo de analytics, gerenciamento de links, histórico de cliques e configurações." />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700&family=Public+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <!-- Porta de Autenticação Administrativa Segura -->
+    <div id="admin-auth-gate" class="admin-auth-gate">
+      <div class="auth-card">
+        <div class="auth-card-header">
+          <div class="brand-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+          </div>
+          <h1 class="app-brand-name">LinkPulse Admin</h1>
+          <p>Acesso protegido por autenticação Firebase e regras de segurança no banco de dados.</p>
+        </div>
+
+        <!-- Estado 1: Login Google -->
+        <div id="auth-login-view" class="form-stack">
+          <button id="admin-google-login-btn" type="button" class="btn btn-primary btn-lg" style="width: 100%;">
+            Entrar com Conta Google Administrativa
+          </button>
+          <a href="/" class="btn btn-secondary" style="width: 100%;">Voltar ao Encurtador</a>
+        </div>
+
+        <!-- Estado 2: Verificação de Senha Administrativa Secundária (se ativada nas configurações) -->
+        <form id="auth-passcode-view" class="form-stack hidden">
+          <div class="alert-box alert-info" style="margin-top: 0;">
+            Conta verificada. Digite a senha administrativa configurada para desbloquear o painel.
+          </div>
+          <div class="field-group">
+            <label for="unlock-passcode-input" class="field-label">Senha administrativa</label>
+            <input id="unlock-passcode-input" type="password" class="input-control" placeholder="Digite sua senha administrativa" required />
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Desbloquear Painel</button>
+          <button id="passcode-logout-btn" type="button" class="btn btn-ghost" style="width: 100%;">Trocar conta</button>
+        </form>
+
+        <!-- Estado 3: Acesso Negado (não-admin) -->
+        <div id="auth-denied-view" class="form-stack hidden">
+          <div class="alert-box alert-error" style="margin-top: 0;">
+            <span id="auth-denied-text">Esta conta não possui permissão de administrador.</span>
+          </div>
+          <button id="denied-switch-btn" type="button" class="btn btn-primary" style="width: 100%;">Entrar com outra conta</button>
+          <a href="/" class="btn btn-secondary" style="width: 100%;">Voltar ao Encurtador</a>
+        </div>
+
+        <div id="auth-error-box" class="alert-box alert-error hidden" role="alert"></div>
+      </div>
+    </div>
+
+    <!-- Painel Administrativo Principal -->
+    <div id="admin-app" class="admin-layout hidden">
+      <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+      <!-- Menu Lateral Recolhível -->
+      <aside id="admin-sidebar" class="sidebar" aria-label="Menu administrativo">
+        <div class="sidebar-top">
+          <a href="/" class="brand-link">
+            <span class="brand-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+            </span>
+            <span class="brand-text app-brand-name">LinkPulse</span>
+          </a>
+          <button id="sidebar-collapse-btn" type="button" class="icon-btn" title="Recolher menu" aria-label="Recolher menu lateral">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+        </div>
+
+        <nav class="sidebar-nav">
+          <button type="button" class="nav-item active" data-section="overview">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="9" />
+              <rect x="14" y="3" width="7" height="5" />
+              <rect x="14" y="12" width="7" height="9" />
+              <rect x="3" y="16" width="7" height="5" />
+            </svg>
+            <span class="nav-label">Visão geral</span>
+          </button>
+
+          <button type="button" class="nav-item" data-section="links">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+            <span class="nav-label">Meus links</span>
+          </button>
+
+          <button type="button" class="nav-item" data-section="analytics">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+            <span class="nav-label">Analytics</span>
+          </button>
+
+          <button type="button" class="nav-item" data-section="history">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span class="nav-label">Histórico de acessos</span>
+          </button>
+
+          <button type="button" class="nav-item" data-section="settings">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            <span class="nav-label">Configurações</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="sidebar-user">
+            <div id="admin-avatar-initials" class="user-avatar-fallback">AD</div>
+            <div class="sidebar-user-meta">
+              <div id="admin-user-email" class="sidebar-user-name">Administrador</div>
+              <div class="sidebar-user-role">Acesso total</div>
+            </div>
+          </div>
+          <a href="/" class="nav-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            <span class="nav-label">Página inicial</span>
+          </a>
+          <button id="admin-logout-btn" type="button" class="nav-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            <span class="nav-label">Sair</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- Conteúdo Principal -->
+      <div class="admin-main">
+        <header class="admin-topbar">
+          <div class="admin-topbar-left">
+            <button id="mobile-menu-btn" type="button" class="icon-btn mobile-menu-btn" aria-label="Abrir menu">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <h1 id="topbar-section-title" class="topbar-title">Visão geral</h1>
+          </div>
+          <div class="admin-topbar-actions">
+            <button id="admin-download-zip-btn" type="button" class="btn btn-secondary btn-sm">
+              Baixar ZIP
+            </button>
+            <button id="topbar-new-link-btn" type="button" class="btn btn-primary btn-sm">
+              + Novo link
+            </button>
+          </div>
+        </header>
+
+        <main class="admin-content">
+          <!-- SEÇÃO 1: VISÃO GERAL -->
+          <section id="section-overview" class="admin-section">
+            <div class="kpi-grid">
+              <div class="kpi-card">
+                <div class="kpi-label">Total de links criados</div>
+                <div id="kpi-total-links" class="kpi-value">0</div>
+                <div id="kpi-active-links" class="kpi-sub">0 ativos no momento</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Total de cliques</div>
+                <div id="kpi-total-clicks" class="kpi-value">0</div>
+                <div class="kpi-sub">Acumulado geral</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Cliques de hoje</div>
+                <div id="kpi-today-clicks" class="kpi-value">0</div>
+                <div class="kpi-sub">Acessos registrados hoje</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Últimos 7 dias</div>
+                <div id="kpi-7d-clicks" class="kpi-value">0</div>
+                <div class="kpi-sub">Desempenho semanal</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Últimos 30 dias</div>
+                <div id="kpi-30d-clicks" class="kpi-value">0</div>
+                <div class="kpi-sub">Desempenho mensal</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Link com melhor desempenho</div>
+                <div id="kpi-best-link" class="kpi-value" style="font-size: 1.2rem;">—</div>
+                <div id="kpi-best-link-sub" class="kpi-sub">Sem cliques registrados ainda</div>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">Cliques nos últimos 14 dias</h2>
+                    <p class="panel-desc">Evolução diária de acessos em todos os links</p>
+                  </div>
+                </div>
+                <div id="overview-daily-chart" class="chart-container"></div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">Links com maior tráfego</h2>
+                    <p class="panel-desc">Ranking por quantidade total de cliques</p>
+                  </div>
+                </div>
+                <div id="overview-top-links" class="breakdown-list"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SEÇÃO 2: MEUS LINKS -->
+          <section id="section-links" class="admin-section hidden">
+            <div class="panel">
+              <div class="toolbar">
+                <div class="toolbar-group">
+                  <div class="search-box">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input id="admin-links-search" type="search" placeholder="Pesquisar por nome, código ou URL..." />
+                  </div>
+                  <div class="segmented-control" role="group" aria-label="Filtrar status dos links">
+                    <button type="button" class="segmented-btn active" data-link-filter="all">Todos</button>
+                    <button type="button" class="segmented-btn" data-link-filter="active">Ativos</button>
+                    <button type="button" class="segmented-btn" data-link-filter="inactive">Desativados</button>
+                  </div>
+                </div>
+                <button id="links-new-btn" type="button" class="btn btn-primary btn-sm">+ Criar link curto</button>
+              </div>
+
+              <div class="table-wrap">
+                <table class="data-table responsive-table">
+                  <thead>
+                    <tr>
+                      <th>Nome / Destino</th>
+                      <th>Link encurtado</th>
+                      <th>Status</th>
+                      <th class="num">Cliques</th>
+                      <th>Criado em</th>
+                      <th class="num">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-links-tbody"></tbody>
+                </table>
+              </div>
+              <div id="admin-links-empty" class="empty-state hidden">
+                <h4>Nenhum link encontrado</h4>
+                <p>Crie seu primeiro link curto ou ajuste os termos de pesquisa.</p>
+                <button id="empty-create-link-btn" type="button" class="btn btn-primary btn-sm">Criar primeiro link</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- SEÇÃO 3: ANALYTICS -->
+          <section id="section-analytics" class="admin-section hidden">
+            <div class="panel">
+              <div class="toolbar" style="margin-bottom: 0;">
+                <div class="toolbar-group">
+                  <label for="analytics-link-select" class="field-label">Analisar link:</label>
+                  <select id="analytics-link-select" class="input-control" style="width: auto; min-width: 220px;">
+                    <option value="ALL">Todos os links</option>
+                  </select>
+                </div>
+                <div class="segmented-control" role="group" aria-label="Período de análise">
+                  <button type="button" class="segmented-btn" data-period="7">7 dias</button>
+                  <button type="button" class="segmented-btn active" data-period="30">30 dias</button>
+                  <button type="button" class="segmented-btn" data-period="all">Todo período</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">Cliques por dia</h2>
+                    <p class="panel-desc">Volume diário de acessos no período selecionado</p>
+                  </div>
+                </div>
+                <div id="analytics-daily-chart" class="chart-container"></div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">Acessos por horário</h2>
+                    <p class="panel-desc">Distribuição das visitas ao longo das 24 horas</p>
+                  </div>
+                </div>
+                <div id="analytics-hourly-chart" class="chart-container"></div>
+              </div>
+            </div>
+
+            <div class="grid-3">
+              <div class="panel">
+                <div class="panel-header">
+                  <h2 class="panel-title">Por dispositivo</h2>
+                </div>
+                <div id="analytics-devices-list" class="breakdown-list"></div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-header">
+                  <h2 class="panel-title">Por navegador</h2>
+                </div>
+                <div id="analytics-browsers-list" class="breakdown-list"></div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-header">
+                  <h2 class="panel-title">Por país e cidade</h2>
+                </div>
+                <div id="analytics-countries-list" class="breakdown-list"></div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">Comparação de desempenho entre links</h2>
+                  <p class="panel-desc">Participação percentual de cliques no período selecionado</p>
+                </div>
+              </div>
+              <div id="analytics-comparison-list" class="breakdown-list"></div>
+            </div>
+          </section>
+
+          <!-- SEÇÃO 4: HISTÓRICO DE ACESSOS -->
+          <section id="section-history" class="admin-section hidden">
+            <div class="panel">
+              <div class="toolbar">
+                <div class="toolbar-group">
+                  <select id="history-link-filter" class="input-control" style="width: auto; min-width: 190px;">
+                    <option value="ALL">Todos os links</option>
+                  </select>
+                  <select id="history-device-filter" class="input-control" style="width: auto;">
+                    <option value="ALL">Todos os dispositivos</option>
+                    <option value="mobile">Celular</option>
+                    <option value="desktop">Computador</option>
+                    <option value="tablet">Tablet</option>
+                  </select>
+                </div>
+                <button id="history-export-csv-btn" type="button" class="btn btn-secondary btn-sm">
+                  Exportar CSV
+                </button>
+              </div>
+
+              <div class="table-wrap">
+                <table class="data-table responsive-table">
+                  <thead>
+                    <tr>
+                      <th>Link acessado</th>
+                      <th>Data</th>
+                      <th>Horário</th>
+                      <th>Dispositivo</th>
+                      <th>Navegador</th>
+                      <th>Localização</th>
+                      <th>Origem / Referer</th>
+                    </tr>
+                  </thead>
+                  <tbody id="history-tbody"></tbody>
+                </table>
+              </div>
+              <div id="history-empty" class="empty-state hidden">
+                <h4>Nenhum acesso registrado</h4>
+                <p>Quando visitantes abrirem seus links encurtados, cada acesso aparecerá aqui em tempo real.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- SEÇÃO 5: CONFIGURAÇÕES -->
+          <section id="section-settings" class="admin-section hidden">
+            <div class="settings-grid">
+              <!-- Nome do Aplicativo -->
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">Identidade do Aplicativo</h2>
+                    <p class="panel-desc">Personalize o nome exibido na página inicial e no painel.</p>
+                  </div>
+                </div>
+                <form id="settings-brand-form" class="form-stack">
+                  <div class="field-group">
+                    <label for="settings-app-name" class="field-label">Nome do aplicativo</label>
+                    <input id="settings-app-name" type="text" class="input-control" minlength="2" maxlength="60" required />
+                  </div>
+                  <button type="submit" class="btn btn-primary" style="align-self: flex-start;">Salvar nome</button>
+                </form>
+              </div>
+
+              <!-- Segurança Administrativa -->
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">Senha Administrativa Secundária</h2>
+                    <p class="panel-desc">Proteção extra com hash SHA-256 armazenado apenas no Firestore (nunca no código).</p>
+                  </div>
+                </div>
+                <form id="settings-security-form" class="form-stack">
+                  <label style="display: flex; align-items: center; gap: 10px; font-size: 0.875rem; font-weight: 500;">
+                    <input id="settings-passcode-enabled" type="checkbox" />
+                    Exigir senha administrativa ao abrir o painel
+                  </label>
+                  <div class="field-group">
+                    <label for="settings-new-passcode" class="field-label">Nova senha administrativa</label>
+                    <input id="settings-new-passcode" type="password" class="input-control" placeholder="Mínimo 4 caracteres" minlength="4" maxlength="64" />
+                  </div>
+                  <button type="submit" class="btn btn-primary" style="align-self: flex-start;">Atualizar segurança</button>
+                </form>
+              </div>
+
+              <!-- Relatórios CSV & Backup -->
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">Exportação e Backup</h2>
+                    <p class="panel-desc">Exporte relatórios em CSV ou faça backup completo em JSON.</p>
+                  </div>
+                </div>
+                <div class="form-stack">
+                  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button id="export-links-csv-btn" type="button" class="btn btn-secondary">Exportar Links (CSV)</button>
+                    <button id="export-clicks-csv-btn" type="button" class="btn btn-secondary">Exportar Acessos (CSV)</button>
+                  </div>
+                  <div class="divider-line"></div>
+                  <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                    <button id="backup-json-btn" type="button" class="btn btn-soft">Fazer Backup Completo (.json)</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Restaurar Dados & Download ZIP -->
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">Restaurar Dados &amp; Pacote ZIP</h2>
+                    <p class="panel-desc">Importe um backup JSON anterior ou baixe todo o projeto pronto para hospedagem.</p>
+                  </div>
+                </div>
+                <div class="form-stack">
+                  <div class="field-group">
+                    <label for="restore-json-input" class="field-label">Restaurar backup (.json)</label>
+                    <input id="restore-json-input" type="file" accept=".json,application/json" class="input-control" />
+                  </div>
+                  <button id="restore-json-btn" type="button" class="btn btn-secondary" style="align-self: flex-start;">
+                    Restaurar backup no banco
+                  </button>
+                  <div class="divider-line"></div>
+                  <button id="settings-download-zip-btn" type="button" class="btn btn-primary" style="align-self: flex-start;">
+                    Baixar Código Completo (.zip)
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <!-- Modal Criar / Editar Link no Painel -->
+    <div id="admin-link-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="admin-modal-title" style="font-size: 1.0625rem;">Novo Link Curto</h3>
+          <button id="admin-modal-close" type="button" class="icon-btn" aria-label="Fechar modal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <form id="admin-link-form">
+          <div class="modal-body form-stack">
+            <input id="modal-mode" type="hidden" value="create" />
+            <div class="field-group">
+              <label for="modal-original-url" class="field-label">URL de destino *</label>
+              <input id="modal-original-url" type="url" class="input-control" placeholder="https://exemplo.com/pagina" required />
+            </div>
+            <div class="field-group">
+              <label for="modal-code" class="field-label">Código curto (deixe vazio para gerar automático)</label>
+              <input id="modal-code" type="text" class="input-control mono" placeholder="ex: minha-campanha" maxlength="40" />
+            </div>
+            <div class="field-group">
+              <label for="modal-title" class="field-label">Nome / Título</label>
+              <input id="modal-title" type="text" class="input-control" placeholder="Nome identificador do link" maxlength="120" />
+            </div>
+            <div class="field-group">
+              <label for="modal-desc" class="field-label">Descrição</label>
+              <textarea id="modal-desc" class="input-control" rows="3" maxlength="400" placeholder="Observações opcionais"></textarea>
+            </div>
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 0.875rem; font-weight: 500;">
+              <input id="modal-active" type="checkbox" checked />
+              Link ativo (permitir redirecionamentos)
+            </label>
+          </div>
+          <div class="modal-footer">
+            <button id="admin-modal-cancel" type="button" class="btn btn-secondary">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar link</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão -->
+    <div id="confirm-delete-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+      <div class="modal-card" style="max-width: 420px;">
+        <div class="modal-header">
+          <h3 id="delete-modal-title" style="font-size: 1.0625rem;">Excluir link permanentemente</h3>
+          <button id="delete-modal-close" type="button" class="icon-btn" aria-label="Fechar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p id="delete-modal-desc" style="font-size: 0.92rem; color: var(--text-secondary);">
+            Tem certeza que deseja excluir este link e todo o histórico de cliques associado? Essa ação não pode ser desfeita.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button id="delete-modal-cancel" type="button" class="btn btn-secondary">Cancelar</button>
+          <button id="delete-modal-confirm" type="button" class="btn btn-danger">Excluir definitivamente</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <script type="module" src="/analytics.js"></script>
+  </body>
+</html>
